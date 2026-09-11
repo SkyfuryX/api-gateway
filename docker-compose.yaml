@@ -5,3 +5,26 @@ services:
     ports:
       - "6379:6379"
     restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: gateway_postgres
+    restart: always
+    shm_size: 128mb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-example}
+      POSTGRES_DB: ${DB_NAME:-api_gateway}
+
+  adminer:
+    image: adminer
+    container_name: adminer
+    restart: always
+    ports:
+      - "8080:8080"
+volumes:
+  pgdata:
