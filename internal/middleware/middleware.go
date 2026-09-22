@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"api-gateway/internal/tenants"
-	
+
 	"github.com/redis/go-redis/v9"
 )
 
@@ -37,26 +37,29 @@ func RateLimit(repo *tenants.Repository, rdb *redis.Client, logger *log.Logger, 
 		}
 
 		rateKey := getMinuteKey(apiKey)
-		count, err := rdb.Incr(r.Context(), rateKey).Result()
+
+		var incrCmd *redis.IntCmd
+		for range 3 {
+			pipe := rdb.Pipeline()
+			incrCmd = pipe.Incr(r.Context(), rateKey)
+			pipe.ExpireNX(r.Context(), rateKey, 60*time.Second)
+
+			_, err = pipe.Exec(r.Context())
+			if err == nil {
+				break // Pipeline executed successfully
+			}
+
+			time.Sleep(10 * time.Millisecond) // Short pause before retrying
+		}
+
 		if err != nil {
-			log.Printf("Error incrementing key: %v", err)
+			logger.Printf("Failed to execute rate limit pipeline on %s: %v. Deleting key.", rateKey, err)
+			_ = rdb.Del(r.Context(), rateKey).Err() // Delete orphan key
 			http.Error(w, "Internal Server Error\n", http.StatusInternalServerError)
 			return
 		}
-		if count == 1 { //retry loop to prevent un-expiring key in Redis
-			var err error
-			for i := 0; i < 3; i++ {
-				err = rdb.Expire(r.Context(), rateKey, 60*time.Second).Err()
-				if err == nil {
-					break
-				}
-				time.Sleep(10 * time.Millisecond)
-			}
-			if err != nil {
-				log.Printf("Failed to set TTL on %s: %v. Deleting key to prevent un-expiring lock.", rateKey, err)
-				_ = rdb.Del(r.Context(), rateKey).Err()
-			}
-		}
+
+		count := incrCmd.Val()
 
 		if count > int64(tenant.RateLimitReqPerMin) {
 			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
