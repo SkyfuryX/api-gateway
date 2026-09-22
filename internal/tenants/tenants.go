@@ -17,21 +17,21 @@ const (
 )
 
 type Repository struct {
-	rdb     *redis.Client
-	queries *db.Queries
+	Rdb     *redis.Client
+	Queries *db.Queries
 }
 
 func NewRepository(rdb *redis.Client, dbpool *pgxpool.Pool) *Repository {
 	return &Repository{
-		rdb:     rdb,
-		queries: db.New(dbpool),
+		Rdb:     rdb,
+		Queries: db.New(dbpool),
 	}
 }
 
-func (cfg *Repository) GetTenantByAPIKey(ctx context.Context, apiKey string) (*db.Tenant, error) {
+func (repo *Repository) GetTenantByAPIKey(ctx context.Context, apiKey string) (*db.Tenant, error) {
 	cacheKey := fmt.Sprintf("tenant:config:%s", apiKey)
 
-	cachedData, err := cfg.rdb.Get(ctx, cacheKey).Result()
+	cachedData, err := repo.Rdb.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var tenant db.Tenant
 		if err := json.Unmarshal([]byte(cachedData), &tenant); err == nil {
@@ -41,20 +41,20 @@ func (cfg *Repository) GetTenantByAPIKey(ctx context.Context, apiKey string) (*d
 		fmt.Printf("Redis error on key %s: %v\n", cacheKey, err)
 	}
 
-	tenant, err := cfg.queries.GetTenantByAPIKey(ctx, apiKey)
+	tenant, err := repo.Queries.GetTenantByAPIKey(ctx, apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to fetch tenant from DB: %w", err)
 	}
 
 	serialized, err := json.Marshal(tenant)
 	if err == nil {
-		_ = cfg.rdb.Set(ctx, cacheKey, serialized, tenantCacheTTL)
+		_ = repo.Rdb.Set(ctx, cacheKey, serialized, tenantCacheTTL)
 	}
 
 	return &tenant, nil
 }
 
-func (cfg *Repository) InvalidateCache(ctx context.Context, apiKey string) error {
+func (repo *Repository) InvalidateCache(ctx context.Context, apiKey string) error {
 	cacheKey := fmt.Sprintf("tenant:config:%s", apiKey)
-	return cfg.rdb.Del(ctx, cacheKey).Err()
+	return repo.Rdb.Del(ctx, cacheKey).Err()
 }

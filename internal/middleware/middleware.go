@@ -1,13 +1,13 @@
 package middleware
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
-	"fmt"
 
 	"api-gateway/internal/tenants"
-
+	
 	"github.com/redis/go-redis/v9"
 )
 
@@ -25,7 +25,6 @@ func RateLimit(repo *tenants.Repository, rdb *redis.Client, logger *log.Logger, 
 			http.Error(w, "Missing API Key\n", http.StatusUnauthorized)
 			return
 		}
-
 		tenant, err := repo.GetTenantByAPIKey(r.Context(), apiKey)
 		if err != nil {
 			logger.Printf("Error retrieving tenant: %v", err)
@@ -34,6 +33,7 @@ func RateLimit(repo *tenants.Repository, rdb *redis.Client, logger *log.Logger, 
 		}
 		if tenant.Status == "Suspended" {
 			http.Error(w, "403 Forbidden", http.StatusForbidden)
+			return
 		}
 
 		rateKey := getMinuteKey(apiKey)
@@ -43,9 +43,18 @@ func RateLimit(repo *tenants.Repository, rdb *redis.Client, logger *log.Logger, 
 			http.Error(w, "Internal Server Error\n", http.StatusInternalServerError)
 			return
 		}
-		if count == 1 {
-			if err := rdb.Expire(r.Context(), rateKey, 60*time.Second).Err(); err != nil {
-
+		if count == 1 { //retry loop to prevent un-expiring key in Redis
+			var err error
+			for i := 0; i < 3; i++ {
+				err = rdb.Expire(r.Context(), rateKey, 60*time.Second).Err()
+				if err == nil {
+					break
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+			if err != nil {
+				log.Printf("Failed to set TTL on %s: %v. Deleting key to prevent un-expiring lock.", rateKey, err)
+				_ = rdb.Del(r.Context(), rateKey).Err()
 			}
 		}
 
