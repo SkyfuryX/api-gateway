@@ -13,7 +13,7 @@ import (
 //go:embed *.sql
 var embedMigrations embed.FS
 
-func RunMigrations(log *log.Logger,dbURL string) error {
+func RunMigrations(log *log.Logger, dbURL string) error {
 	db, err := sql.Open("pgx", dbURL)
 	if err != nil {
 		return fmt.Errorf("Failed to open DB for migrations: %v", err)
@@ -26,7 +26,7 @@ func RunMigrations(log *log.Logger,dbURL string) error {
 		return fmt.Errorf("Failed to set goose dialect: %v", err)
 	}
 
-	if err := goose.Up(db, "./"); err != nil {
+	if err := goose.Up(db, "."); err != nil {
 		return fmt.Errorf("Failed to run migrations: %v", err)
 	}
 	log.Print("Migrations successfully applied")

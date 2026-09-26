@@ -12,10 +12,10 @@ import (
 	"os"
 	"time"
 
-	"api-gateway/internal/handlers"
-	"api-gateway/internal/middleware"
-	"api-gateway/internal/tenants"
-	"api-gateway/sql/migrations"
+	"github.com/SkyfuryX/api-gateway/internal/handlers"
+	"github.com/SkyfuryX/api-gateway/internal/middleware"
+	"github.com/SkyfuryX/api-gateway/internal/tenants"
+	"github.com/SkyfuryX/api-gateway/sql/migrations"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -55,12 +55,12 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		fmt.Println("No .env file found, relying on system environment variables")
 	}
-	
+
 	logger, close, err := initializeLogger()
 	defer close()
 
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
+		Addr:     "gateway_redis:6379",
 		Password: "", // no password
 		DB:       0,  //default DB
 		Protocol: 2,
@@ -69,18 +69,24 @@ func main() {
 
 	var dbURL string = os.Getenv("DB_URL")
 	if err := migrations.RunMigrations(logger, dbURL); err != nil {
-
+		logger.Printf("Error completeing migrations: %v", err)
 	}
 	dbpool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		log.Fatalf("Failure connecting to postgres: %v", err)
+		logger.Fatalf("Failure creating Postgres pool connection: %v", err)
 	}
 	defer dbpool.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
+	if err = dbpool.Ping(context.Background()); err != nil {
+		logger.Fatalf("Failure connecting to Postgres: %v", err)
+	} else {
+		logger.Println("Successfully connected to Postgres!")
+	}
+
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		logger.Fatalf("Warning: Could not connect to Redis: %v", err)
+		logger.Fatalf("Failure connecting to Redis: %v", err)
 	} else {
 		logger.Println("Successfully connected to Redis!")
 	}
@@ -104,7 +110,7 @@ func main() {
 	mux.Handle("GET api/2", middleware.RateLimit(repo, rdb, logger, proxy))
 	mux.HandleFunc("GET /healthz", handlers.Healthz(dbpool, rdb))
 
-	const port = "8082"
+	const port = "8080"
 	srv := &http.Server{
 		Addr:         ":" + port,
 		Handler:      mux,
