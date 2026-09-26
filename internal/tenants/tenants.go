@@ -1,12 +1,13 @@
 package tenants
 
 import (
-	"api-gateway/internal/db"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/SkyfuryX/api-gateway/internal/db"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"

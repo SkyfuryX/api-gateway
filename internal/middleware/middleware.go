@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"api-gateway/internal/tenants"
+	"github.com/SkyfuryX/api-gateway/internal/tenants"
 
 	"github.com/redis/go-redis/v9"
 )
