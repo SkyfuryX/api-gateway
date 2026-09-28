@@ -10,6 +10,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/SkyfuryX/api-gateway/internal/handlers"
@@ -102,12 +103,12 @@ func main() {
 		Rewrite: func(r *httputil.ProxyRequest) {
 			r.SetURL(targetURL)
 			r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
+			r.Out.URL.Path = strings.TrimPrefix(r.In.URL.Path, "/api/v1")
 		},
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("GET api/1", middleware.RateLimit(repo, rdb, logger, proxy))
-	mux.Handle("GET api/2", middleware.RateLimit(repo, rdb, logger, proxy))
+	mux.Handle("GET api/v1/", middleware.RateLimit(repo, rdb, logger, proxy))
 	mux.HandleFunc("GET /healthz", handlers.Healthz(dbpool, rdb))
 
 	const port = "8080"

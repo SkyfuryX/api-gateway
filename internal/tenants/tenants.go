@@ -2,6 +2,8 @@ package tenants
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,14 +11,24 @@ import (
 
 	"github.com/SkyfuryX/api-gateway/internal/db"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
 const (
 	tenantCacheTTL = 5 * time.Minute
+
+	StatusActive    TenantStatus = "active"
+	StatusSuspended TenantStatus = "suspended"
+
+	TierFree       TenantTier = "free"
+	TierPro        TenantTier = "pro"
+	TierEnterprise TenantTier = "enterprise"
 )
 
+type TenantStatus string
+type TenantTier string
 type Repository struct {
 	Rdb     *redis.Client
 	Queries *db.Queries
@@ -55,7 +67,58 @@ func (repo *Repository) GetTenantByAPIKey(ctx context.Context, apiKey string) (*
 	return &tenant, nil
 }
 
+func (repo *Repository) CreateTenant(name string, tier TenantTier, rate int, status TenantStatus) (db.CreateTenantRow, error) {
+	params := db.CreateTenantParams{
+		Name:               name,
+		ApiKey:             GenerateAPIKey(),
+		Tier:               string(tier),
+		RateLimitReqPerMin: int32(rate),
+		Status:             string(status),
+	}
+
+	tenant, err := repo.Queries.CreateTenant(context.Background(), params)
+	if err != nil {
+		return db.CreateTenantRow{}, fmt.Errorf("Error creating new tenant: %v", err)
+	}
+
+	return tenant, nil
+}
+
+func (repo *Repository) UpdateTierAndRate(id pgtype.UUID, tier TenantTier, rate int) (db.UpdateTenantTierAndRateRow, error) {
+	params := db.UpdateTenantTierAndRateParams{
+		ID:                 id,
+		Tier:               string(tier),
+		RateLimitReqPerMin: int32(rate),
+	}
+
+	tenant, err := repo.Queries.UpdateTenantTierAndRate(context.Background(), params)
+	if err != nil {
+		return db.UpdateTenantTierAndRateRow{}, fmt.Errorf("Error updating tier and rate for ID %v: %v", id, err)
+	}
+
+	return tenant, nil
+}
+
+func (repo *Repository) UpdateTenantStatus(id pgtype.UUID, status TenantStatus) (db.UpdateTenantStatusRow, error) {
+	params := db.UpdateTenantStatusParams{
+		ID:     id,
+		Status: string(status),
+	}
+
+	statusRow, err := repo.Queries.UpdateTenantStatus(context.Background(), params)
+	if err != nil {
+		return db.UpdateTenantStatusRow{}, fmt.Errorf("Error updating tenant status for ID %v: %v", id, err)
+	}
+	return statusRow, nil
+}
+
 func (repo *Repository) InvalidateCache(ctx context.Context, apiKey string) error {
 	cacheKey := fmt.Sprintf("tenant:config:%s", apiKey)
 	return repo.Rdb.Del(ctx, cacheKey).Err()
+}
+
+func GenerateAPIKey() string {
+	bytes := make([]byte, 24)
+	rand.Read(bytes)
+	return fmt.Sprintf("gw_live_%s", hex.EncodeToString(bytes))
 }
