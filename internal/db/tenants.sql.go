@@ -14,27 +14,28 @@ import (
 const createTenant = `-- name: CreateTenant :one
 INSERT INTO tenants (
     name,
+    email,
     api_key,
     tier,
-    rate_limit_req_per_min,
-    status
+    rate_limit_req_per_min
 ) VALUES (
     $1, $2, $3, $4, $5
 )
-RETURNING id, name, api_key, tier, rate_limit_req_per_min, status, created_at
+RETURNING id, name, email, api_key, tier, rate_limit_req_per_min, status, created_at
 `
 
 type CreateTenantParams struct {
 	Name               string `json:"name"`
+	Email              string `json:"email"`
 	ApiKey             string `json:"api_key"`
 	Tier               string `json:"tier"`
 	RateLimitReqPerMin int32  `json:"rate_limit_req_per_min"`
-	Status             string `json:"status"`
 }
 
 type CreateTenantRow struct {
 	ID                 pgtype.UUID        `json:"id"`
 	Name               string             `json:"name"`
+	Email              string             `json:"email"`
 	ApiKey             string             `json:"api_key"`
 	Tier               string             `json:"tier"`
 	RateLimitReqPerMin int32              `json:"rate_limit_req_per_min"`
@@ -45,15 +46,16 @@ type CreateTenantRow struct {
 func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (CreateTenantRow, error) {
 	row := q.db.QueryRow(ctx, createTenant,
 		arg.Name,
+		arg.Email,
 		arg.ApiKey,
 		arg.Tier,
 		arg.RateLimitReqPerMin,
-		arg.Status,
 	)
 	var i CreateTenantRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.Email,
 		&i.ApiKey,
 		&i.Tier,
 		&i.RateLimitReqPerMin,
@@ -78,9 +80,20 @@ WHERE api_key = $1
 LIMIT 1
 `
 
-func (q *Queries) GetTenantByAPIKey(ctx context.Context, apiKey string) (Tenant, error) {
+type GetTenantByAPIKeyRow struct {
+	ID                 pgtype.UUID        `json:"id"`
+	Name               string             `json:"name"`
+	ApiKey             string             `json:"api_key"`
+	Tier               string             `json:"tier"`
+	RateLimitReqPerMin int32              `json:"rate_limit_req_per_min"`
+	Status             string             `json:"status"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetTenantByAPIKey(ctx context.Context, apiKey string) (GetTenantByAPIKeyRow, error) {
 	row := q.db.QueryRow(ctx, getTenantByAPIKey, apiKey)
-	var i Tenant
+	var i GetTenantByAPIKeyRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -94,12 +107,126 @@ func (q *Queries) GetTenantByAPIKey(ctx context.Context, apiKey string) (Tenant,
 	return i, err
 }
 
-const updateTenantStatus = `-- name: UpdateTenantStatus :one
+const getTenantByEmail = `-- name: GetTenantByEmail :one
+SELECT 
+    id,
+    name,
+    email
+    api_key,
+    tier,
+    rate_limit_req_per_min,
+    status,
+    created_at,
+    updated_at
+FROM tenants
+WHERE email = $1
+LIMIT 1
+`
+
+type GetTenantByEmailRow struct {
+	ID                 pgtype.UUID        `json:"id"`
+	Name               string             `json:"name"`
+	ApiKey             string             `json:"api_key"`
+	Tier               string             `json:"tier"`
+	RateLimitReqPerMin int32              `json:"rate_limit_req_per_min"`
+	Status             string             `json:"status"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetTenantByEmail(ctx context.Context, email string) (GetTenantByEmailRow, error) {
+	row := q.db.QueryRow(ctx, getTenantByEmail, email)
+	var i GetTenantByEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ApiKey,
+		&i.Tier,
+		&i.RateLimitReqPerMin,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateAPIKeyByEmail = `-- name: UpdateAPIKeyByEmail :one
 UPDATE tenants
-    SET status = $2,
+SET 
+    api_key = $2,
+    updated_at = NOW()
+WHERE email = $1
+RETURNING id, name, email, api_key, updated_at
+`
+
+type UpdateAPIKeyByEmailParams struct {
+	Email  string `json:"email"`
+	ApiKey string `json:"api_key"`
+}
+
+type UpdateAPIKeyByEmailRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	Email     string             `json:"email"`
+	ApiKey    string             `json:"api_key"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateAPIKeyByEmail(ctx context.Context, arg UpdateAPIKeyByEmailParams) (UpdateAPIKeyByEmailRow, error) {
+	row := q.db.QueryRow(ctx, updateAPIKeyByEmail, arg.Email, arg.ApiKey)
+	var i UpdateAPIKeyByEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.ApiKey,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateAPIKeyByID = `-- name: UpdateAPIKeyByID :one
+UPDATE tenants
+SET 
+    api_key = $2,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, name, status, updated_at
+RETURNING id, name, email, api_key, updated_at
+`
+
+type UpdateAPIKeyByIDParams struct {
+	ID     pgtype.UUID `json:"id"`
+	ApiKey string      `json:"api_key"`
+}
+
+type UpdateAPIKeyByIDRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	Email     string             `json:"email"`
+	ApiKey    string             `json:"api_key"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateAPIKeyByID(ctx context.Context, arg UpdateAPIKeyByIDParams) (UpdateAPIKeyByIDRow, error) {
+	row := q.db.QueryRow(ctx, updateAPIKeyByID, arg.ID, arg.ApiKey)
+	var i UpdateAPIKeyByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.ApiKey,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateTenantStatus = `-- name: UpdateTenantStatus :one
+UPDATE tenants
+SET 
+    status = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, name, email, status, updated_at
 `
 
 type UpdateTenantStatusParams struct {
@@ -110,6 +237,7 @@ type UpdateTenantStatusParams struct {
 type UpdateTenantStatusRow struct {
 	ID        pgtype.UUID        `json:"id"`
 	Name      string             `json:"name"`
+	Email     string             `json:"email"`
 	Status    string             `json:"status"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
@@ -120,6 +248,7 @@ func (q *Queries) UpdateTenantStatus(ctx context.Context, arg UpdateTenantStatus
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.Email,
 		&i.Status,
 		&i.UpdatedAt,
 	)

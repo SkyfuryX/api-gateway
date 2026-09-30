@@ -8,9 +8,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AdminUser struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	Email     string             `json:"email"`
+	ApiKey    string             `json:"api_key"`
+	Status    string             `json:"status"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Tenant struct {
 	ID                 pgtype.UUID        `json:"id"`
 	Name               string             `json:"name"`
+	Email              string             `json:"email"`
 	ApiKey             string             `json:"api_key"`
 	Tier               string             `json:"tier"`
 	RateLimitReqPerMin int32              `json:"rate_limit_req_per_min"`

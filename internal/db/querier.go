@@ -6,11 +6,20 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
+	CreateAdminUser(ctx context.Context, arg CreateAdminUserParams) (CreateAdminUserRow, error)
 	CreateTenant(ctx context.Context, arg CreateTenantParams) (CreateTenantRow, error)
-	GetTenantByAPIKey(ctx context.Context, apiKey string) (Tenant, error)
+	GetAdminByAPIKey(ctx context.Context, apiKey string) (GetAdminByAPIKeyRow, error)
+	GetTenantByAPIKey(ctx context.Context, apiKey string) (GetTenantByAPIKeyRow, error)
+	GetTenantByEmail(ctx context.Context, email string) (GetTenantByEmailRow, error)
+	UpdateAPIKeyByEmail(ctx context.Context, arg UpdateAPIKeyByEmailParams) (UpdateAPIKeyByEmailRow, error)
+	UpdateAPIKeyByID(ctx context.Context, arg UpdateAPIKeyByIDParams) (UpdateAPIKeyByIDRow, error)
+	UpdateAdminAPIKey(ctx context.Context, id pgtype.UUID) (UpdateAdminAPIKeyRow, error)
+	UpdateAdminStatus(ctx context.Context, arg UpdateAdminStatusParams) (UpdateAdminStatusRow, error)
 	UpdateTenantStatus(ctx context.Context, arg UpdateTenantStatusParams) (UpdateTenantStatusRow, error)
 	UpdateTenantTierAndRate(ctx context.Context, arg UpdateTenantTierAndRateParams) (UpdateTenantTierAndRateRow, error)
 }
