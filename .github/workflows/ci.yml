@@ -1,4 +1,5 @@
-name: ci
+
+name: CI
 
 on:
   push:
@@ -11,10 +12,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint & Style
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -22,12 +27,12 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: "go.mod"
+          go-version-file: go.mod
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          version: v2.13
 
   test-and-build:
     name: Tests & Compilation
@@ -43,7 +48,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -65,7 +70,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: "go.mod"
+          go-version-file: go.mod
 
       - name: Verify Go Module Integrity
         run: go mod verify
@@ -75,8 +80,8 @@ jobs:
 
       - name: Run Tests
         env:
-          DB_URL: "postgres://postgres:postgrespassword@localhost:5432/gateway_test?sslmode=disable"
-          REDIS_ADDR: "localhost:6379"
+          DB_URL: postgres://postgres:postgrespassword@localhost:5432/gateway_test?sslmode=disable
+          REDIS_ADDR: localhost:6379
         run: go test -v -cover ./...
 
       - name: Verify Binaries Compile
@@ -87,22 +92,23 @@ jobs:
   docker-integration:
     name: Docker Compose Integration
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out code
         uses: actions/checkout@v7
 
       - name: Create mock .env file
-        # Injects the environment variables required for the gateway to connect
-        # using the default credentials from your docker-compose.yml
         run: |
           echo "DB_URL=postgres://postgres:postgres_password@gateway_postgres:5432/api_gateway?sslmode=disable" > .env
           echo "REDIS_ADDR=gateway_redis:6379" >> .env
 
       - name: Build and start Docker Compose network
-        # The --wait flag blocks the CI runner until all container healthchecks 
-        # (including your Go /healthz endpoint) report as "healthy"
         run: docker compose up -d --build --wait
 
       - name: Print Container Logs on Failure
         if: failure()
         run: docker compose logs
+
+      - name: Shut down Docker Compose
+        if: always()
+        run: docker compose down -v
