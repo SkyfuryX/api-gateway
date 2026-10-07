@@ -19,7 +19,7 @@ func RunMigrations(log *log.Logger, dbURL string) error {
 		return fmt.Errorf("failed to open DB for migrations: %v", err)
 	}
 	defer func() {
-		if err = db.Close(); err != nil{
+		if err = db.Close(); err != nil {
 			fmt.Println(err)
 		}
 	}()

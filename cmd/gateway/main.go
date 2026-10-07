@@ -74,7 +74,7 @@ func main() {
 		Protocol: 2,
 	})
 	defer func() {
-		if err := rdb.Close(); err != nil{
+		if err := rdb.Close(); err != nil {
 			logger.Printf("Error closing Redis: %v", err)
 		}
 	}()
