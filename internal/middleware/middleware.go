@@ -28,16 +28,15 @@ func RateLimit(repo *tenants.Repository, rdb *redis.Client, logger *log.Logger, 
 		tenant, err := repo.GetTenantByAPIKey(r.Context(), apiKey)
 		if err != nil {
 			logger.Printf("Error retrieving tenant: %v", err)
-			http.Error(w, "Invalid API Key", http.StatusForbidden)
+			http.Error(w, "Invalid API Key", http.StatusUnauthorized)
 			return
 		}
-		if tenant.Status == "Suspended" {
-			http.Error(w, "403 Forbidden", http.StatusForbidden)
+		if tenant.Status == "suspended" {
+			http.Error(w, "API Key Suspended", http.StatusForbidden)
 			return
 		}
 
 		rateKey := getMinuteKey(apiKey)
-
 		var incrCmd *redis.IntCmd
 		for range 3 {
 			pipe := rdb.Pipeline()

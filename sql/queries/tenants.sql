@@ -2,6 +2,7 @@
 SELECT 
     id,
     name,
+    email,
     api_key,
     tier,
     rate_limit_req_per_min,
@@ -16,7 +17,7 @@ LIMIT 1;
 SELECT 
     id,
     name,
-    email
+    email,
     api_key,
     tier,
     rate_limit_req_per_min,
@@ -62,12 +63,4 @@ SET
     api_key = $2,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, name, email, api_key, updated_at;
-
--- name: UpdateAPIKeyByEmail :one
-UPDATE tenants
-SET 
-    api_key = $2,
-    updated_at = NOW()
-WHERE email = $1
 RETURNING id, name, email, api_key, updated_at;

@@ -13,6 +13,7 @@ COPY . .
 
 # Compile the gateway binary directly from its path inside /app/cmd/gateway
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/gateway ./cmd/gateway
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/admin ./cmd/admin
 
 # --- Execution Stage ---
 FROM alpine:3.19
@@ -21,6 +22,7 @@ WORKDIR /app
 
 # Copy built binary from the builder stage
 COPY --from=builder /app/gateway .
+COPY --from=builder /app/admin .
 
 EXPOSE 8080
 

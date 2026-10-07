@@ -1,0 +1,1 @@
+docker exec -it api_gateway /app/admin
