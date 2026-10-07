@@ -34,16 +34,16 @@ func initializeLogger() (*log.Logger, closeFunc, error) {
 	}
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Error writing log file: %v", err)
-
+		return nil, nil, fmt.Errorf("Error writing log file: %w", err)
 	}
+	
 	bufferedFile := bufio.NewWriterSize(f, 8192)
 	close := func() error {
 		if err = bufferedFile.Flush(); err != nil {
-			return fmt.Errorf("Error flushing file buffer: %v", err)
+			return fmt.Errorf("Error flushing file buffer: %w", err)
 		}
 		if err = f.Close(); err != nil {
-			return fmt.Errorf("Error closing file: %v", err)
+			return fmt.Errorf("Error closing file: %w", err)
 		}
 		return nil
 	}
@@ -93,8 +93,9 @@ func main() {
 	}
 
 	repo := tenants.NewRepository(rdb, dbpool)
-
-	targetURL, err := url.Parse(("http://localhost:8081"))
+	
+	backendURL := os.Getenv("BACKEND_URL")
+	targetURL, err := url.Parse(backendURL)
 	if err != nil {
 		logger.Fatalf("Invalid target URL: %v", err)
 	}
@@ -108,7 +109,7 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("GET api/v1/", middleware.RateLimit(repo, rdb, logger, proxy))
+	mux.Handle("GET /api/v1/", middleware.RateLimit(repo, rdb, logger, proxy))
 	mux.HandleFunc("GET /healthz", handlers.Healthz(dbpool, rdb))
 
 	const port = "8080"
