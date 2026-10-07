@@ -34,16 +34,16 @@ func initializeLogger() (*log.Logger, closeFunc, error) {
 	}
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Error writing log file: %w", err)
+		return nil, nil, fmt.Errorf("error writing log file: %w", err)
 	}
-	
+
 	bufferedFile := bufio.NewWriterSize(f, 8192)
 	close := func() error {
 		if err = bufferedFile.Flush(); err != nil {
-			return fmt.Errorf("Error flushing file buffer: %w", err)
+			return fmt.Errorf("error flushing file buffer: %w", err)
 		}
 		if err = f.Close(); err != nil {
-			return fmt.Errorf("Error closing file: %w", err)
+			return fmt.Errorf("error closing file: %w", err)
 		}
 		return nil
 	}
@@ -58,7 +58,14 @@ func main() {
 	}
 
 	logger, close, err := initializeLogger()
-	defer close()
+	if err != nil {
+		fmt.Printf("Error intializing logger, %v", err)
+	}
+	defer func() {
+		if err := close(); err != nil {
+			logger.Println(err)
+		}
+	}()
 
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     "gateway_redis:6379",
@@ -66,9 +73,13 @@ func main() {
 		DB:       0,  //default DB
 		Protocol: 2,
 	})
-	defer rdb.Close()
+	defer func() {
+		if err := rdb.Close(); err != nil{
+			logger.Printf("Error closing Redis: %v", err)
+		}
+	}()
 
-	var dbURL string = os.Getenv("DB_URL")
+	dbURL := os.Getenv("DB_URL")
 	if err := migrations.RunMigrations(logger, dbURL); err != nil {
 		logger.Printf("Error completeing migrations: %v", err)
 	}
@@ -93,7 +104,7 @@ func main() {
 	}
 
 	repo := tenants.NewRepository(rdb, dbpool)
-	
+
 	backendURL := os.Getenv("BACKEND_URL")
 	targetURL, err := url.Parse(backendURL)
 	if err != nil {

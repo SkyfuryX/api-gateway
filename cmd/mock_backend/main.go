@@ -20,7 +20,7 @@ func writeJSONResponse(w http.ResponseWriter, data any) {
 		http.Error(w, "Internal Server Error\n", http.StatusInternalServerError)
 		return
 	}
-	w.Write(resp)
+	_, _ = w.Write(resp)
 }
 
 func mockResponder1(w http.ResponseWriter, r *http.Request) {

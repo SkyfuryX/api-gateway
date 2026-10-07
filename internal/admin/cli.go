@@ -121,9 +121,9 @@ func PromptUpdateTenantStatus(reader *bufio.Reader, repo *tenants.Repository) {
 		fmt.Printf("ID:         %s\n", result.ID)
 		fmt.Printf("Status      %s\n", result.Status)
 		fmt.Println("----------------------------------------")
-		
+
 		// clears cached key in Redis on status change
-		if result.Status != tenant.Status{
+		if result.Status != tenant.Status {
 			if err = repo.InvalidateCache(context.Background(), result.ApiKey); err != nil {
 				fmt.Println(err)
 			}

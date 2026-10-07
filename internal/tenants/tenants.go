@@ -56,7 +56,7 @@ func (repo *Repository) GetTenantByAPIKey(ctx context.Context, apiKey string) (d
 
 	tenantRow, err := repo.Queries.GetTenantByAPIKey(ctx, apiKey)
 	if err != nil {
-		return db.Tenant{}, fmt.Errorf("Tenant not found: %w", err)
+		return db.Tenant{}, fmt.Errorf("tenant not found: %w", err)
 	}
 
 	serialized, err := json.Marshal(tenantRow)
@@ -81,7 +81,7 @@ func (repo *Repository) GetTenantByAPIKey(ctx context.Context, apiKey string) (d
 func (repo *Repository) GetTenantByEmail(ctx context.Context, email string) (db.Tenant, error) {
 	tenantRow, err := repo.Queries.GetTenantByEmail(context.Background(), email)
 	if err != nil {
-		return db.Tenant{}, fmt.Errorf("Tenant not found: %w", err)
+		return db.Tenant{}, fmt.Errorf("tenant not found: %w", err)
 	}
 
 	tenant := db.Tenant{
@@ -109,7 +109,7 @@ func (repo *Repository) CreateTenant(name, email string, tier TenantTier, rate i
 
 	tenantRow, err := repo.Queries.CreateTenant(context.Background(), params)
 	if err != nil {
-		return db.Tenant{}, fmt.Errorf("Error creating new tenant: %w", err)
+		return db.Tenant{}, fmt.Errorf("error creating new tenant: %w", err)
 	}
 
 	tenant := db.Tenant{
@@ -134,7 +134,7 @@ func (repo *Repository) UpdateTierAndRate(id pgtype.UUID, tier TenantTier, rate 
 
 	tenantRow, err := repo.Queries.UpdateTenantTierAndRate(context.Background(), params)
 	if err != nil {
-		return db.Tenant{}, fmt.Errorf("Error updating tier and rate for ID %v: %w", id, err)
+		return db.Tenant{}, fmt.Errorf("error updating tier and rate for ID %v: %w", id, err)
 	}
 
 	tenant := db.Tenant{
@@ -157,7 +157,7 @@ func (repo *Repository) UpdateTenantStatus(id pgtype.UUID, status TenantStatus) 
 
 	tenantRow, err := repo.Queries.UpdateTenantStatus(context.Background(), params)
 	if err != nil {
-		return db.Tenant{}, fmt.Errorf("Error updating tenant status for ID %v: %w", id, err)
+		return db.Tenant{}, fmt.Errorf("error updating tenant status for ID %v: %w", id, err)
 	}
 
 	tenant := db.Tenant{
@@ -178,7 +178,7 @@ func (repo *Repository) UpdateTenantAPIKey(id pgtype.UUID) (db.Tenant, error) {
 
 	tenantRow, err := repo.Queries.UpdateAPIKeyByID(context.Background(), params)
 	if err != nil {
-		return db.Tenant{}, fmt.Errorf("Error updating tenant APi Key for ID %v: %w", id, err)
+		return db.Tenant{}, fmt.Errorf("error updating tenant APi Key for ID %v: %w", id, err)
 	}
 
 	tenant := db.Tenant{
