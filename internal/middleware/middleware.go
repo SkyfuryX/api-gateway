@@ -7,15 +7,17 @@ import (
 	"time"
 
 	"github.com/SkyfuryX/api-gateway/internal/tenants"
+	"github.com/SkyfuryX/api-gateway/pkg/crypto"
 
 	"github.com/redis/go-redis/v9"
 )
 
 func getMinuteKey(apiKey string) string {
+	keyHash := crypto.HashAPIKey(apiKey)
 	now := time.Now().Unix()
 	minuteBucket := now / 60
 
-	return fmt.Sprintf("rate:%s:%d", apiKey, minuteBucket)
+	return fmt.Sprintf("rate:%s:%d", keyHash, minuteBucket)
 }
 
 func RateLimit(repo *tenants.Repository, rdb *redis.Client, logger *log.Logger, next http.Handler) http.Handler {
