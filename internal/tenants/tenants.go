@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/SkyfuryX/api-gateway/internal/db"
+	"github.com/SkyfuryX/api-gateway/pkg/crypto"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -41,8 +42,13 @@ func NewRepository(rdb *redis.Client, dbpool *pgxpool.Pool) *Repository {
 	}
 }
 
+func getCacheKey(apiKey string) string {
+	return fmt.Sprintf("tenant:config:%s", apiKey)
+}
+
 func (repo *Repository) GetTenantByAPIKey(ctx context.Context, apiKey string) (db.Tenant, error) {
-	cacheKey := fmt.Sprintf("tenant:config:%s", apiKey)
+	keyHash := crypto.HashAPIKey(apiKey)
+	cacheKey := getCacheKey(keyHash)
 
 	cachedData, err := repo.Rdb.Get(ctx, cacheKey).Result()
 	var tenant db.Tenant
@@ -79,7 +85,7 @@ func (repo *Repository) GetTenantByAPIKey(ctx context.Context, apiKey string) (d
 }
 
 func (repo *Repository) GetTenantByEmail(ctx context.Context, email string) (db.Tenant, error) {
-	tenantRow, err := repo.Queries.GetTenantByEmail(context.Background(), email)
+	tenantRow, err := repo.Queries.GetTenantByEmail(ctx, email)
 	if err != nil {
 		return db.Tenant{}, fmt.Errorf("tenant not found: %w", err)
 	}
@@ -102,7 +108,7 @@ func (repo *Repository) CreateTenant(name, email string, tier TenantTier, rate i
 	params := db.CreateTenantParams{
 		Name:               name,
 		Email:              email,
-		ApiKey:             GenerateTenantAPIKey(),
+		ApiKey:             crypto.HashAPIKey(GenerateTenantAPIKey()),
 		Tier:               string(tier),
 		RateLimitReqPerMin: int32(rate),
 	}
@@ -120,7 +126,7 @@ func (repo *Repository) CreateTenant(name, email string, tier TenantTier, rate i
 		Tier:               tenantRow.Tier,
 		RateLimitReqPerMin: tenantRow.RateLimitReqPerMin,
 		Status:             tenantRow.Status,
-		UpdatedAt:          tenantRow.CreatedAt,
+		CreatedAt:          tenantRow.CreatedAt,
 	}
 	return tenant, nil
 }
@@ -192,7 +198,7 @@ func (repo *Repository) UpdateTenantAPIKey(id pgtype.UUID) (db.Tenant, error) {
 }
 
 func (repo *Repository) InvalidateCache(ctx context.Context, apiKey string) error {
-	cacheKey := fmt.Sprintf("tenant:config:%s", apiKey)
+	cacheKey := getCacheKey(apiKey)
 	if err := repo.Rdb.Del(ctx, cacheKey).Err(); err != redis.Nil {
 		return err
 	}
